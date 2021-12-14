@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <title>Bus Stop Code Prototype</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.5.16/p5.min.js" type="text/javascript"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.9.0/addons/p5.dom.min.js"></script>
+  <script src="https://unpkg.com/mappa-mundi/dist/mappa.min.js" type="text/javascript"></script> 
+  <script src="https://unpkg.com/ml5@latest/dist/ml5.min.js"></script>
+  <script src="http://localhost:8080/ml5.js" type="text/javascript"></script> 
+  <script src="mappa.js" type="text/javascript"></script>
+</head>
+
+<style>
+  /* .leaflet-control-zoom {
+        display: none;
+      } */
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        padding: 0;
+        margin: 0;
+    }
+
+</style>
+
+<body>
+  <script>
+    // IO&E - Fall 2021 - Sarah Young
+    // Code prototype of interactive map for bus installation
+    // Map would appear on a screen installed inside the bus shelter and appear when users enter
+    // Users can scroll and press buttons to zoom into map to view their location as well as the bus location
+    // Used Mappa.js to display a canvas ontop of a map API https://mappa.js.org/
+    // Mappa.js connects to Leaflet javascript library https://leafletjs.com/
+    // Tile Map styling from https://cloud.maptiler.com/maps/
+    // Icons:
+    // https://www.iconfinder.com/icons/3641253/basic_map_point_pointer_ui_location_marker_icon
+    // https://www.flaticon.com/free-icon/front-of-bus_308?k=1638145717034
+
+    let poseNet;
+    let poses = [];
+    let pose;
+    let lwX, lwY, rwX, rwY;
+    let video;
+    let marker;
+    let busMarker;
+    let bus;
+
+    let myMap;
+    let newMap;
+    let canvas;
+    const mappa = new Mappa('Leaflet');
+
+    let ready = false;
+
+    // Map options put into a single object
+    let options = {
+        lat: 43.230285,
+        lng: -79.886483,
+        zoom: 18,
+        style: 'https://api.maptiler.com/maps/pastel/{z}/{x}/{y}.png?key=82OhCSIQbADFl28UT1VK'
+        //Other style options:
+        //style: 'https://api.maptiler.com/maps/basic/{z}/{x}/{y}.png?key=82OhCSIQbADFl28UT1VK'
+        //style: 'https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key=82OhCSIQbADFl28UT1VK'
+        //style: 'https://api.maptiler.com/maps/bright/{z}/{x}/{y}.png?key=82OhCSIQbADFl28UT1VK'
+    }
+
+    function preload(){
+      marker = loadImage('assets/marker.png');
+      busMarker = loadImage('assets/bus_marker.png');
+      bus = loadImage('assets/bus.png');
+    }
+
+    function setup(){
+
+        //Canvas based on calculated proportions of installation
+        canvas = createCanvas(1100,550); 
+        video = createCapture(VIDEO);
+        video.hide();
+
+        poseNet = ml5.poseNet(video,  {
+            flipHorizontal: true //flips interaction
+        },modelLoaded);
+        poseNet.on('pose', gotPoses);
+
+        //Creates tile map and overlays canvas ontop
+        myMap = mappa.tileMap(options);
+        myMap.overlay(canvas);
+    }
+
+    // Detects poses
+    function gotPoses(poses){
+        console.log(poses);
+        if(poses.length > 0){
+          pose = poses[0].pose;
+          //values hold left wrist x and y position
+          lwX = poses[0].pose.keypoints[9].position.x;
+          lwY = poses[0].pose.keypoints[9].position.y;
+          rwX = poses[0].pose.keypoints[10].position.x;
+          rwY = poses[0].pose.keypoints[10].position.y;
+        }
+    }
+
+    function modelLoaded(){
+        console.log("model ready");
+        ready = true;
+    };
+
+
+    function draw(){
+      //Only draw map elements if poses are detected otherwise draw background to cover
+      if(pose){
+          // Only redraw the point when the map changes and not every frame.
+          myMap.onChange(drawPoint);
+
+          // Background for bus location update
+          rectMode(CORNERS);
+          fill(47, 165, 248);
+          noStroke();
+          rect(850, 480, 1000, 520, 10);
+
+          image(bus, 870, 500, 20, 20);
+
+          //Bus location update
+          textSize(16);
+          fill(255);
+          text("1 Stop Away", 890, 505)
+
+      }else{
+        background(255);
+      }
+    }
+
+
+    // Draws markers for location of bus stop and location of the bus
+    function drawPoint(){
+        clear();
+
+        // Bus stop location marker
+        const location = myMap.latLngToPixel(43.230285, -79.886483); 
+        imageMode(CENTER);
+        image(marker, location.x, location.y-20, 40, 40);
+
+        // Bus location marker
+        // In actuality bus location would use updating data i.e. something like this: https://mappa.js.org/docs/taxi-routes.html
+        let busLocation = myMap.latLngToPixel(43.232995, -79.885158); 
+        imageMode(CENTER);
+        image(busMarker, busLocation.x, busLocation.y-20, 40, 40);
+    }
+  
+  </script>
+</body>
+
+</html>
